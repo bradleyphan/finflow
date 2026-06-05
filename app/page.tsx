@@ -1,65 +1,86 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import React from "react";
+import { useStore } from "@/lib/store";
+import {
+  calculateFinancials,
+  calculateBudgetStatuses,
+  calculateSavingsInsights,
+  getUpcomingBills,
+} from "@/lib/calculations";
+import { IncomeHeader } from "@/components/dashboard/IncomeHeader";
+import { SummaryCards } from "@/components/dashboard/SummaryCards";
+import { SafeToSpendRing } from "@/components/dashboard/SafeToSpendRing";
+import { WealthBuilderCard } from "@/components/dashboard/WealthBuilderCard";
+import { BillTimeline } from "@/components/dashboard/BillTimeline";
+import { SharedSplitVisualizer } from "@/components/dashboard/SharedSplitVisualizer";
+import { BurdenBreakdown } from "@/components/dashboard/BurdenBreakdown";
+import { NetCashFlowHero } from "@/components/dashboard/NetCashFlowHero";
+import { UpcomingBillsAlert } from "@/components/dashboard/UpcomingBillsAlert";
+import { BudgetCaps } from "@/components/dashboard/BudgetCaps";
+import { SavingsInsights } from "@/components/dashboard/SavingsInsights";
+
+export default function DashboardPage() {
+  const { data } = useStore();
+  const summary = calculateFinancials(data);
+  const budgetStatuses = calculateBudgetStatuses(data);
+  const insights = calculateSavingsInsights(data);
+  const upcomingBills = getUpcomingBills(data, 7);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div>
+      <IncomeHeader summary={summary} />
+
+      {/* Alert banner */}
+      <UpcomingBillsAlert bills={upcomingBills} />
+
+      {/* Top summary cards */}
+      <SummaryCards summary={summary} />
+
+      {/* Net cash flow hero */}
+      <div className="mt-6">
+        <NetCashFlowHero summary={summary} />
+      </div>
+
+      {/* Dual Safe-to-Spend rings */}
+      <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+        <SafeToSpendRing summary={summary} user={1} />
+        <SafeToSpendRing summary={summary} user={2} />
+      </div>
+
+      {/* Main grid */}
+      <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-1 flex flex-col gap-6">
+          <WealthBuilderCard summary={summary} />
+          <BudgetCaps statuses={budgetStatuses} />
+        </div>
+
+        <div className="lg:col-span-1 flex flex-col gap-6">
+          <BurdenBreakdown summary={summary} />
+        </div>
+
+        <div className="lg:col-span-1 flex flex-col gap-6">
+          <BillTimeline subscriptions={data.subscriptions} user1Name={summary.user1Name} user2Name={summary.user2Name} />
+          <SavingsInsights insights={insights} />
+        </div>
+      </div>
+
+      {/* Full-width shared split visualizer */}
+      <div className="mt-6">
+        <SharedSplitVisualizer
+          fixedExpenses={data.fixedExpenses}
+          subscriptions={data.subscriptions}
+          totalShared={summary.totalShared}
+          user1Share={summary.user1ShareOfShared}
+          user2Share={summary.user2ShareOfShared}
+          pctUser1={summary.splitPctUser1}
+          pctUser2={summary.splitPctUser2}
+          user1Name={summary.user1Name}
+          user2Name={summary.user2Name}
+          user1Initial={summary.user1Initial}
+          user2Initial={summary.user2Initial}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      </div>
     </div>
   );
 }
