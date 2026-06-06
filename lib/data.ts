@@ -6,6 +6,10 @@ export const defaultData: DashboardData = {
     ote: 2500,             // User 1 monthly OTE/bonus — firewalled
     user2BaseSalary: 5200, // User 2 monthly base
     user2Ote: 800,         // User 2 monthly OTE/bonus — firewalled
+    user1Mode: "salary",
+    user2Mode: "salary",
+    user1Hourly: { hourlyRate: 0, hoursPerWeek: 0, tipsPerShift: 0, shiftsPerWeek: 0 },
+    user2Hourly: { hourlyRate: 17, hoursPerWeek: 32, tipsPerShift: 175, shiftsPerWeek: 4 },
   },
   subscriptions: [
     {
@@ -160,6 +164,38 @@ export const defaultData: DashboardData = {
     { id: "bud_utilities", category: "Utilities", cap: 300 },
     { id: "bud_food", category: "Food", cap: 900 },   // intentionally below 950 spend to demo over-budget
     { id: "bud_transport", category: "Transport", cap: 250 },
+  ],
+  goals: [
+    {
+      id: "goal_emergency",
+      name: "Emergency Fund",
+      kind: "emergency",
+      target: 15000,
+      current: 6200,
+      monthlyContribution: 500,
+      icon: "shield",
+      color: "#10B981",
+    },
+    {
+      id: "goal_house",
+      name: "House Down Payment",
+      kind: "savings",
+      target: 40000,
+      current: 8500,
+      monthlyContribution: 800,
+      icon: "home",
+      color: "#3B82F6",
+    },
+    {
+      id: "goal_car_loan",
+      name: "Car Loan",
+      kind: "debt",
+      target: 12000,
+      current: 4500,
+      monthlyContribution: 350,
+      icon: "car",
+      color: "#F59E0B",
+    },
   ],
   splitRatioUser1: 0.6,
   user1Name: "User 1",

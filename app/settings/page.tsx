@@ -3,28 +3,93 @@
 import React, { useState } from "react";
 import { useStore } from "@/lib/store";
 import { Card, CardBody } from "@/components/ui/Card";
-import { formatCurrency } from "@/lib/calculations";
+import { formatCurrency, hourlyToMonthly } from "@/lib/calculations";
 import { ShareHousehold } from "@/components/ShareHousehold";
+import { IncomeMode } from "@/lib/types";
 import clsx from "clsx";
+
+type Period = "Monthly" | "Annual";
+type HourlyForm = {
+  hourlyRate: string;
+  hoursPerWeek: string;
+  tipsPerShift: string;
+  shiftsPerWeek: string;
+};
+
+function toHourlyForm(c: { hourlyRate: number; hoursPerWeek: number; tipsPerShift: number; shiftsPerWeek: number }): HourlyForm {
+  return {
+    hourlyRate: String(c.hourlyRate),
+    hoursPerWeek: String(c.hoursPerWeek),
+    tipsPerShift: String(c.tipsPerShift),
+    shiftsPerWeek: String(c.shiftsPerWeek),
+  };
+}
+
+function parseHourly(h: HourlyForm) {
+  return {
+    hourlyRate: parseFloat(h.hourlyRate) || 0,
+    hoursPerWeek: parseFloat(h.hoursPerWeek) || 0,
+    tipsPerShift: parseFloat(h.tipsPerShift) || 0,
+    shiftsPerWeek: parseFloat(h.shiftsPerWeek) || 0,
+  };
+}
 
 export default function IncomePage() {
   const { data, updateIncome, updateNames, resetData } = useStore();
+  const inc = data.income;
 
-  const [base, setBase] = useState(String(data.income.baseSalary));
-  const [ote, setOte] = useState(String(data.income.ote));
-  const [base2, setBase2] = useState(String(data.income.user2BaseSalary));
-  const [ote2, setOte2] = useState(String(data.income.user2Ote));
+  const [period, setPeriod] = useState<Period>("Monthly");
+  const [mode1, setMode1] = useState<IncomeMode>(inc.user1Mode ?? "salary");
+  const [mode2, setMode2] = useState<IncomeMode>(inc.user2Mode ?? "salary");
+  const [base, setBase] = useState(String(inc.baseSalary));
+  const [ote, setOte] = useState(String(inc.ote));
+  const [base2, setBase2] = useState(String(inc.user2BaseSalary));
+  const [ote2, setOte2] = useState(String(inc.user2Ote));
+  const [h1, setH1] = useState<HourlyForm>(toHourlyForm(inc.user1Hourly));
+  const [h2, setH2] = useState<HourlyForm>(toHourlyForm(inc.user2Hourly));
   const [name1, setName1] = useState(data.user1Name);
   const [name2, setName2] = useState(data.user2Name);
   const [saved, setSaved] = useState(false);
 
+  // Inputs are shown in the selected period; we always store MONTHLY internally.
+  const toMonthly = (v: string) => {
+    const n = parseFloat(v) || 0;
+    return period === "Annual" ? n / 12 : n;
+  };
+
+  function switchPeriod(next: Period) {
+    if (next === period) return;
+    const factor = next === "Annual" ? 12 : 1 / 12;
+    const conv = (v: string) => {
+      const n = parseFloat(v);
+      return isNaN(n) ? v : String(Math.round(n * factor * 100) / 100);
+    };
+    setBase(conv(base));
+    setOte(conv(ote));
+    setBase2(conv(base2));
+    setOte2(conv(ote2));
+    setPeriod(next);
+  }
+
+  const estMonthly1 = hourlyToMonthly(parseHourly(h1));
+  const estMonthly2 = hourlyToMonthly(parseHourly(h2));
+
+  const monthlyBase1 = mode1 === "hourly" ? estMonthly1 : toMonthly(base);
+  const monthlyOte1 = toMonthly(ote);
+  const monthlyBase2 = mode2 === "hourly" ? estMonthly2 : toMonthly(base2);
+  const monthlyOte2 = toMonthly(ote2);
+
   function handleSave(e: React.FormEvent) {
     e.preventDefault();
     updateIncome({
-      baseSalary: parseFloat(base) || 0,
-      ote: parseFloat(ote) || 0,
-      user2BaseSalary: parseFloat(base2) || 0,
-      user2Ote: parseFloat(ote2) || 0,
+      baseSalary: monthlyBase1,
+      ote: monthlyOte1,
+      user2BaseSalary: monthlyBase2,
+      user2Ote: monthlyOte2,
+      user1Mode: mode1,
+      user2Mode: mode2,
+      user1Hourly: parseHourly(h1),
+      user2Hourly: parseHourly(h2),
     });
     updateNames(name1.trim() || "User 1", name2.trim() || "User 2");
     setSaved(true);
@@ -34,14 +99,10 @@ export default function IncomePage() {
   const displayName1 = name1.trim() || "User 1";
   const displayName2 = name2.trim() || "User 2";
 
-  const previewBase = parseFloat(base) || 0;
-  const previewOte = parseFloat(ote) || 0;
-  const previewBase2 = parseFloat(base2) || 0;
-  const previewOte2 = parseFloat(ote2) || 0;
-
-  const householdBase = previewBase + previewBase2;
-  const householdOte = previewOte + previewOte2;
+  const householdBase = monthlyBase1 + monthlyBase2;
+  const householdOte = monthlyOte1 + monthlyOte2;
   const householdTotal = householdBase + householdOte;
+  const suffix = period === "Annual" ? "/yr" : "/mo";
 
   return (
     <div>
@@ -49,7 +110,7 @@ export default function IncomePage() {
         <div>
           <p className="text-xs text-slate-400 font-semibold uppercase tracking-widest mb-1">Configure</p>
           <h1 className="text-3xl font-bold text-slate-900">Income Settings</h1>
-          <p className="text-slate-500 text-sm mt-1">Set each user&apos;s monthly base salary and OTE/bonus</p>
+          <p className="text-slate-500 text-sm mt-1">Set each person&apos;s income — salary or hourly + tips</p>
         </div>
         <button
           onClick={resetData}
@@ -69,59 +130,61 @@ export default function IncomePage() {
         <Card>
           <CardBody>
             <form onSubmit={handleSave} className="space-y-6">
-              {/* User 1 */}
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-6 h-6 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <span className="text-blue-600 text-[10px] font-black">
-                      {(displayName1.charAt(0) || "1").toUpperCase()}
-                    </span>
-                  </div>
-                  <h2 className="text-sm font-bold text-slate-800">{displayName1}&apos;s Income</h2>
-                </div>
-                <div className="mb-3">
-                  <label className="text-xs font-semibold text-slate-500 mb-1.5 block">Display Name</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Bradley"
-                    value={name1}
-                    onChange={(e) => setName1(e.target.value)}
-                    maxLength={20}
-                    className="w-full border border-slate-200 rounded-2xl px-4 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-300 placeholder:text-slate-300"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <IncomeInput label="Base Salary" value={base} onChange={setBase} accent="slate" />
-                  <IncomeInput label="OTE / Bonus" value={ote} onChange={setOte} accent="violet" firewall />
+              {/* Period toggle */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500">Enter salary amounts as</span>
+                <div className="flex bg-slate-100 rounded-full p-0.5">
+                  {(["Monthly", "Annual"] as Period[]).map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => switchPeriod(p)}
+                      className={clsx(
+                        "px-3.5 py-1.5 rounded-full text-xs font-bold transition-all",
+                        period === p ? "bg-white text-slate-900 shadow-sm" : "text-slate-400"
+                      )}
+                    >
+                      {p}
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              {/* User 2 */}
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-6 h-6 bg-violet-100 rounded-lg flex items-center justify-center">
-                    <span className="text-violet-600 text-[10px] font-black">
-                      {(displayName2.charAt(0) || "2").toUpperCase()}
-                    </span>
-                  </div>
-                  <h2 className="text-sm font-bold text-slate-800">{displayName2}&apos;s Income</h2>
-                </div>
-                <div className="mb-3">
-                  <label className="text-xs font-semibold text-slate-500 mb-1.5 block">Display Name</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Alex"
-                    value={name2}
-                    onChange={(e) => setName2(e.target.value)}
-                    maxLength={20}
-                    className="w-full border border-slate-200 rounded-2xl px-4 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-300 placeholder:text-slate-300"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <IncomeInput label="Base Salary" value={base2} onChange={setBase2} accent="slate" />
-                  <IncomeInput label="OTE / Bonus" value={ote2} onChange={setOte2} accent="violet" firewall />
-                </div>
-              </div>
+              <UserIncomeBlock
+                name={name1}
+                setName={setName1}
+                displayName={displayName1}
+                namePlaceholder="e.g. Bradley"
+                accent="blue"
+                mode={mode1}
+                setMode={setMode1}
+                base={base}
+                setBase={setBase}
+                ote={ote}
+                setOte={setOte}
+                hourly={h1}
+                setHourly={setH1}
+                suffix={suffix}
+                estMonthly={estMonthly1}
+              />
+
+              <UserIncomeBlock
+                name={name2}
+                setName={setName2}
+                displayName={displayName2}
+                namePlaceholder="e.g. Alex"
+                accent="violet"
+                mode={mode2}
+                setMode={setMode2}
+                base={base2}
+                setBase={setBase2}
+                ote={ote2}
+                setOte={setOte2}
+                hourly={h2}
+                setHourly={setH2}
+                suffix={suffix}
+                estMonthly={estMonthly2}
+              />
 
               {/* Firewall explainer */}
               <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4">
@@ -198,18 +261,120 @@ export default function IncomePage() {
   );
 }
 
+function UserIncomeBlock({
+  name,
+  setName,
+  displayName,
+  namePlaceholder,
+  accent,
+  mode,
+  setMode,
+  base,
+  setBase,
+  ote,
+  setOte,
+  hourly,
+  setHourly,
+  suffix,
+  estMonthly,
+}: {
+  name: string;
+  setName: (v: string) => void;
+  displayName: string;
+  namePlaceholder: string;
+  accent: "blue" | "violet";
+  mode: IncomeMode;
+  setMode: (m: IncomeMode) => void;
+  base: string;
+  setBase: (v: string) => void;
+  ote: string;
+  setOte: (v: string) => void;
+  hourly: HourlyForm;
+  setHourly: (h: HourlyForm) => void;
+  suffix: string;
+  estMonthly: number;
+}) {
+  const ring = accent === "violet" ? "focus:ring-violet-300" : "focus:ring-blue-300";
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-3">
+        <div className={clsx("w-6 h-6 rounded-lg flex items-center justify-center", accent === "violet" ? "bg-violet-100" : "bg-blue-100")}>
+          <span className={clsx("text-[10px] font-black", accent === "violet" ? "text-violet-600" : "text-blue-600")}>
+            {(displayName.charAt(0) || "?").toUpperCase()}
+          </span>
+        </div>
+        <h2 className="text-sm font-bold text-slate-800">{displayName}&apos;s Income</h2>
+      </div>
+
+      <div className="mb-3">
+        <label className="text-xs font-semibold text-slate-500 mb-1.5 block">Display Name</label>
+        <input
+          type="text"
+          placeholder={namePlaceholder}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          maxLength={20}
+          className={clsx("w-full border border-slate-200 rounded-2xl px-4 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 placeholder:text-slate-300", ring)}
+        />
+      </div>
+
+      {/* Income type toggle */}
+      <div className="flex bg-slate-100 rounded-full p-0.5 mb-3">
+        {(["salary", "hourly"] as IncomeMode[]).map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => setMode(m)}
+            className={clsx(
+              "flex-1 px-3 py-1.5 rounded-full text-xs font-bold transition-all capitalize",
+              mode === m ? "bg-white text-slate-900 shadow-sm" : "text-slate-400"
+            )}
+          >
+            {m === "salary" ? "Salary" : "Hourly + Tips"}
+          </button>
+        ))}
+      </div>
+
+      {mode === "salary" ? (
+        <div className="grid grid-cols-2 gap-3">
+          <IncomeInput label="Base Salary" suffix={suffix} value={base} onChange={setBase} accent={accent} />
+          <IncomeInput label="OTE / Bonus" suffix={suffix} value={ote} onChange={setOte} accent="violet" firewall />
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <NumberField label="Hourly rate" prefix="$" value={hourly.hourlyRate} onChange={(v) => setHourly({ ...hourly, hourlyRate: v })} accent={accent} />
+            <NumberField label="Hours / week" value={hourly.hoursPerWeek} onChange={(v) => setHourly({ ...hourly, hoursPerWeek: v })} accent={accent} />
+            <NumberField label="Avg tips / shift" prefix="$" value={hourly.tipsPerShift} onChange={(v) => setHourly({ ...hourly, tipsPerShift: v })} accent={accent} />
+            <NumberField label="Shifts / week" value={hourly.shiftsPerWeek} onChange={(v) => setHourly({ ...hourly, shiftsPerWeek: v })} accent={accent} />
+          </div>
+          <div className="flex items-center justify-between bg-blue-50 border border-blue-100 rounded-2xl px-4 py-2.5">
+            <span className="text-xs font-semibold text-blue-700">Estimated monthly income</span>
+            <span className="text-base font-extrabold text-blue-800 tabular-nums">{formatCurrency(estMonthly)}/mo</span>
+          </div>
+          <div className="grid grid-cols-1 gap-3">
+            <IncomeInput label="OTE / Bonus (optional)" suffix={suffix} value={ote} onChange={setOte} accent="violet" firewall />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function IncomeInput({
   label,
   value,
   onChange,
   accent,
   firewall,
+  suffix,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
-  accent: "slate" | "violet";
+  accent: "slate" | "violet" | "blue";
   firewall?: boolean;
+  suffix?: string;
 }) {
   return (
     <div>
@@ -226,8 +391,44 @@ function IncomeInput({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           className={clsx(
-            "w-full border border-slate-200 rounded-2xl pl-7 pr-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 font-semibold tabular-nums",
-            accent === "violet" ? "focus:ring-violet-300" : "focus:ring-slate-300"
+            "w-full border border-slate-200 rounded-2xl pl-7 pr-10 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 font-semibold tabular-nums",
+            accent === "violet" ? "focus:ring-violet-300" : accent === "blue" ? "focus:ring-blue-300" : "focus:ring-slate-300"
+          )}
+        />
+        {suffix && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 text-xs font-semibold">{suffix}</span>}
+      </div>
+    </div>
+  );
+}
+
+function NumberField({
+  label,
+  value,
+  onChange,
+  accent,
+  prefix,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  accent: "blue" | "violet";
+  prefix?: string;
+}) {
+  return (
+    <div>
+      <label className="text-xs font-semibold text-slate-500 mb-1.5 block">{label}</label>
+      <div className="relative">
+        {prefix && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-semibold">{prefix}</span>}
+        <input
+          type="number"
+          min="0"
+          step="1"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className={clsx(
+            "w-full border border-slate-200 rounded-2xl py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 font-semibold tabular-nums",
+            prefix ? "pl-7 pr-3" : "px-3",
+            accent === "violet" ? "focus:ring-violet-300" : "focus:ring-blue-300"
           )}
         />
       </div>

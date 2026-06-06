@@ -6,6 +6,7 @@ import {
   calculateFinancials,
   calculateBudgetStatuses,
   calculateSavingsInsights,
+  calculateGoalStatuses,
   getUpcomingBills,
 } from "@/lib/calculations";
 import { IncomeHeader } from "@/components/dashboard/IncomeHeader";
@@ -19,12 +20,14 @@ import { NetCashFlowHero } from "@/components/dashboard/NetCashFlowHero";
 import { UpcomingBillsAlert } from "@/components/dashboard/UpcomingBillsAlert";
 import { BudgetCaps } from "@/components/dashboard/BudgetCaps";
 import { SavingsInsights } from "@/components/dashboard/SavingsInsights";
+import { GoalsSummary } from "@/components/dashboard/GoalsSummary";
 
 export default function DashboardPage() {
   const { data } = useStore();
   const summary = calculateFinancials(data);
   const budgetStatuses = calculateBudgetStatuses(data);
   const insights = calculateSavingsInsights(data);
+  const goalStatuses = calculateGoalStatuses(data);
   const upcomingBills = getUpcomingBills(data, 7);
 
   return (
@@ -57,6 +60,7 @@ export default function DashboardPage() {
 
         <div className="lg:col-span-1 flex flex-col gap-6">
           <BurdenBreakdown summary={summary} />
+          <GoalsSummary goals={goalStatuses} />
         </div>
 
         <div className="lg:col-span-1 flex flex-col gap-6">

@@ -9,7 +9,7 @@ import React, {
   useCallback,
   ReactNode,
 } from "react";
-import { DashboardData, Income, Budget, Subscription, FixedExpense } from "./types";
+import { DashboardData, Income, Budget, Subscription, FixedExpense, Goal } from "./types";
 import { defaultData } from "./data";
 
 const CODE_KEY = "finflow_household";
@@ -43,6 +43,9 @@ interface StoreContextType {
   updateBudget: (id: string, budget: Partial<Budget>) => void;
   updateSplitRatio: (ratioUser1: number) => void;
   updateNames: (user1Name: string, user2Name: string) => void;
+  addGoal: (goal: Goal) => void;
+  removeGoal: (id: string) => void;
+  updateGoal: (id: string, goal: Partial<Goal>) => void;
   resetData: () => void;
 }
 
@@ -52,10 +55,16 @@ const StoreContext = createContext<StoreContextType | null>(null);
 function migrate(parsed: Partial<DashboardData> | null | undefined): DashboardData {
   const p = parsed || {};
   return {
-    income: { ...defaultData.income, ...(p.income || {}) },
+    income: {
+      ...defaultData.income,
+      ...(p.income || {}),
+      user1Hourly: { ...defaultData.income.user1Hourly, ...(p.income?.user1Hourly || {}) },
+      user2Hourly: { ...defaultData.income.user2Hourly, ...(p.income?.user2Hourly || {}) },
+    },
     subscriptions: p.subscriptions ?? defaultData.subscriptions,
     fixedExpenses: p.fixedExpenses ?? defaultData.fixedExpenses,
     budgets: p.budgets ?? defaultData.budgets,
+    goals: p.goals ?? defaultData.goals,
     splitRatioUser1: p.splitRatioUser1 ?? defaultData.splitRatioUser1,
     user1Name: p.user1Name ?? defaultData.user1Name,
     user2Name: p.user2Name ?? defaultData.user2Name,
@@ -328,6 +337,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const updateNames = (user1Name: string, user2Name: string) =>
     mutate((prev) => ({ ...prev, user1Name, user2Name }));
 
+  const addGoal = (goal: Goal) =>
+    mutate((prev) => ({ ...prev, goals: [...(prev.goals ?? []), goal] }));
+
+  const removeGoal = (id: string) =>
+    mutate((prev) => ({ ...prev, goals: (prev.goals ?? []).filter((g) => g.id !== id) }));
+
+  const updateGoal = (id: string, goal: Partial<Goal>) =>
+    mutate((prev) => ({
+      ...prev,
+      goals: (prev.goals ?? []).map((g) => (g.id === id ? { ...g, ...goal } : g)),
+    }));
+
   const resetData = () => mutate(() => defaultData);
 
   return (
@@ -353,6 +374,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         updateBudget,
         updateSplitRatio,
         updateNames,
+        addGoal,
+        removeGoal,
+        updateGoal,
         resetData,
       }}
     >

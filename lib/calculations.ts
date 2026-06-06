@@ -6,6 +6,9 @@ import {
   BudgetStatus,
   SavingsInsight,
   UpcomingBill,
+  HourlyConfig,
+  Goal,
+  GoalStatus,
 } from "./types";
 
 export function getMonthlyAmount(item: Subscription | FixedExpense): number {
@@ -13,6 +16,15 @@ export function getMonthlyAmount(item: Subscription | FixedExpense): number {
     return item.frequency === "Annual" ? item.amount / 12 : item.amount;
   }
   return item.amount;
+}
+
+// Average monthly take-home estimate from an hourly + tips schedule.
+// (weekly wages + weekly tips) * 52 weeks / 12 months
+export function hourlyToMonthly(cfg: HourlyConfig): number {
+  if (!cfg) return 0;
+  const weeklyWages = (cfg.hourlyRate || 0) * (cfg.hoursPerWeek || 0);
+  const weeklyTips = (cfg.tipsPerShift || 0) * (cfg.shiftsPerWeek || 0);
+  return ((weeklyWages + weeklyTips) * 52) / 12;
 }
 
 export function calculateFinancials(data: DashboardData): FinancialSummary {
@@ -174,6 +186,37 @@ export function getUpcomingBills(data: DashboardData, withinDays = 7): UpcomingB
     .sort((a, b) => a.days - b.days);
 }
 
+export function calculateGoalStatuses(data: DashboardData): GoalStatus[] {
+  const goals = data.goals ?? [];
+  return goals.map((g: Goal) => {
+    const target = Math.max(0, g.target);
+    const current = Math.max(0, g.current);
+    const remaining = Math.max(0, target - current);
+    const pct = target > 0 ? Math.min(100, (current / target) * 100) : 0;
+    const complete = remaining <= 0 && target > 0;
+    const monthsToGoal =
+      !complete && g.monthlyContribution > 0
+        ? Math.ceil(remaining / g.monthlyContribution)
+        : complete
+        ? 0
+        : null;
+    return {
+      id: g.id,
+      name: g.name,
+      kind: g.kind,
+      target,
+      current,
+      remaining,
+      pct,
+      monthlyContribution: g.monthlyContribution,
+      monthsToGoal,
+      complete,
+      icon: g.icon,
+      color: g.color,
+    };
+  });
+}
+
 export function getDaysUntilDue(dueDay: number): number {
   const today = new Date();
   const currentDay = today.getDate();
@@ -193,6 +236,15 @@ export function formatCurrency(amount: number): string {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(amount);
+}
+
+export function formatMonths(months: number | null): string {
+  if (months === null) return "—";
+  if (months <= 0) return "Done";
+  if (months < 12) return `${months} mo`;
+  const years = Math.floor(months / 12);
+  const rem = months % 12;
+  return rem === 0 ? `${years}y` : `${years}y ${rem}mo`;
 }
 
 export function formatCurrencyCompact(amount: number): string {

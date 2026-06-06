@@ -1,12 +1,39 @@
 export type FrequencyType = "Monthly" | "Annual";
 export type SplitType = "Individual_1" | "Individual_2" | "Shared";
 export type ExpenseCategory = "Individual_1" | "Individual_2" | "Shared";
+export type IncomeMode = "salary" | "hourly";
+export type GoalKind = "savings" | "emergency" | "debt";
+
+// Inputs for estimating variable income (hourly wage + tips)
+export interface HourlyConfig {
+  hourlyRate: number;     // $ per hour
+  hoursPerWeek: number;   // scheduled hours / week
+  tipsPerShift: number;   // average tips per shift
+  shiftsPerWeek: number;  // shifts / week
+}
 
 export interface Income {
-  baseSalary: number; // User 1 base
-  ote: number;        // User 1 OTE/bonus (firewalled)
-  user2BaseSalary: number; // User 2 base
-  user2Ote: number;        // User 2 OTE/bonus (firewalled)
+  baseSalary: number; // User 1 effective MONTHLY base (derived from hourly when in hourly mode)
+  ote: number;        // User 1 monthly OTE/bonus (firewalled)
+  user2BaseSalary: number; // User 2 effective MONTHLY base
+  user2Ote: number;        // User 2 monthly OTE/bonus (firewalled)
+
+  // How each user's base income is entered (salary number vs. hourly + tips estimate)
+  user1Mode: IncomeMode;
+  user2Mode: IncomeMode;
+  user1Hourly: HourlyConfig;
+  user2Hourly: HourlyConfig;
+}
+
+export interface Goal {
+  id: string;
+  name: string;
+  kind: GoalKind;
+  target: number;              // savings/emergency: goal amount. debt: total balance to pay off
+  current: number;             // savings/emergency: amount saved. debt: amount paid off so far
+  monthlyContribution: number; // planned $ / month toward this goal
+  icon: string;
+  color: string;
 }
 
 export interface Subscription {
@@ -40,6 +67,7 @@ export interface DashboardData {
   subscriptions: Subscription[];
   fixedExpenses: FixedExpense[];
   budgets: Budget[];
+  goals: Goal[];
   splitRatioUser1: number; // User 1's share of shared expenses (0–1), e.g. 0.6
   user1Name: string;
   user2Name: string;
@@ -73,6 +101,21 @@ export interface UpcomingBill {
   icon: string;
   color: string;
   days: number;
+}
+
+export interface GoalStatus {
+  id: string;
+  name: string;
+  kind: GoalKind;
+  target: number;
+  current: number;
+  remaining: number;        // how much left to reach target / pay off
+  pct: number;              // 0–100 progress
+  monthlyContribution: number;
+  monthsToGoal: number | null; // null when no contribution set
+  complete: boolean;
+  icon: string;
+  color: string;
 }
 
 export interface FinancialSummary {
